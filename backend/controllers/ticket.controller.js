@@ -298,7 +298,10 @@ exports.updateStatus = async (req, res, next) => {
     const { status, notes } = req.body;
 
     const ticket = await prisma.ticket.findUnique({
-      where: { id: req.params.id }
+      where: { id: req.params.id },
+      include: {
+        diagnosis: true
+      }
     });
 
     if (!ticket) {
@@ -324,6 +327,46 @@ exports.updateStatus = async (req, res, next) => {
         newStatus: status
       }
     });
+
+    // Send WhatsApp notification when ticket is resolved
+    if (status === 'RESOLVED') {
+      const { sendWhatsAppNotification } = require('../utils/whatsapp');
+      
+      const message = `✅ Great news! Your motherboard repair is complete!
+
+🎫 Ticket: ${ticket.ticketNumber}
+📋 Customer: ${ticket.customerName}
+🔧 Motherboard: ${ticket.motherboardBrand} ${ticket.motherboardType}
+
+Your device has been repaired and is ready for pickup!
+
+${ticket.diagnosis ? `💰 Total Amount: ₹${ticket.diagnosis.totalCost}` : ''}
+
+Please visit our service center to collect your motherboard and make the payment.
+
+Thank you for choosing our service! 😊`;
+
+      await sendWhatsAppNotification(ticket.customerPhone, message);
+    }
+    
+    // Send WhatsApp notification when repair starts
+    if (status === 'IN_PROGRESS') {
+      const { sendWhatsAppNotification } = require('../utils/whatsapp');
+      
+      const message = `🔧 Your motherboard repair has started!
+
+🎫 Ticket: ${ticket.ticketNumber}
+📋 Customer: ${ticket.customerName}
+🔧 Motherboard: ${ticket.motherboardBrand} ${ticket.motherboardType}
+
+Our technicians are now working on your repair.
+
+${ticket.diagnosis?.estimatedCompletionDays ? `⏱️ Estimated Completion: ${ticket.diagnosis.estimatedCompletionDays} day(s)` : ''}
+
+We'll notify you once it's complete! 😊`;
+
+      await sendWhatsAppNotification(ticket.customerPhone, message);
+    }
 
     res.json({
       success: true,
@@ -443,6 +486,20 @@ exports.updateApproval = async (req, res, next) => {
   try {
     const { approvalStatus, customerResponseNotes } = req.body;
 
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: req.params.id },
+      include: {
+        diagnosis: true
+      }
+    });
+
+    if (!ticket) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ticket not found'
+      });
+    }
+
     const approval = await prisma.ticketApproval.update({
       where: { ticketId: req.params.id },
       data: {
@@ -469,6 +526,33 @@ exports.updateApproval = async (req, res, next) => {
         newStatus
       }
     });
+
+    // Send WhatsApp notification for manual approval/decline
+    const { sendWhatsAppNotification } = require('../utils/whatsapp');
+    
+    if (approvalStatus === 'APPROVED') {
+      const message = `✅ Your repair has been APPROVED!
+
+🎫 Ticket: ${ticket.ticketNumber}
+🔧 Motherboard: ${ticket.motherboardBrand} ${ticket.motherboardType}
+💰 Total Cost: ₹${ticket.diagnosis.totalCost}
+
+We're now proceeding with the repair. You'll be notified once it's completed!
+
+Thank you! 😊`;
+      
+      await sendWhatsAppNotification(ticket.customerPhone, message);
+    } else if (approvalStatus === 'DECLINED') {
+      const message = `❌ Repair DECLINED - Ticket ${ticket.ticketNumber}
+
+Your motherboard repair request has been marked as declined.
+
+If you have any questions or wish to proceed, please contact us.
+
+Thank you!`;
+      
+      await sendWhatsAppNotification(ticket.customerPhone, message);
+    }
 
     res.json({
       success: true,
