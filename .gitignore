@@ -65,8 +65,9 @@ coverage/
 .nyc_output/
 
 # Prisma
-backend/prisma/migrations/*
-!backend/prisma/migrations/.gitkeep
+# Keep migrations for deployment
+# backend/prisma/migrations/*
+# !backend/prisma/migrations/.gitkeep
 
 # Lock files (keep one, remove others based on your preference)
 # package-lock.json
