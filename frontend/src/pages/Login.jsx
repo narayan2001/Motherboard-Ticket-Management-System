@@ -113,10 +113,11 @@ const Login = () => {
           </form>
 
           <div className="mt-6 text-center text-sm text-gray-600">
-            <p>Default credentials for testing:</p>
-            <p className="font-mono text-xs mt-2">
-              admin@example.com / admin123
-            </p>
+            <p className="mb-2">Demo credentials:</p>
+            <div className="space-y-1 font-mono text-xs">
+              <p>Employee: employee@example.com / employee123</p>
+              <p>Receptionist: receptionist@example.com / receptionist123</p>
+            </div>
           </div>
         </div>
       </div>

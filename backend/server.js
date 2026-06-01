@@ -17,9 +17,29 @@ const seedRoutes = require('./routes/seed.routes');
 // Initialize express app
 const app = express();
 
-// Middleware
+// Middleware - Allow multiple origins for CORS
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'http://localhost:3000',
+  'http://localhost:5173'
+].filter(Boolean);
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
+      callback(null, true);
+    } else {
+      // Allow all origins in production if FRONTEND_URL is not set
+      if (process.env.NODE_ENV === 'production' && !process.env.FRONTEND_URL) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    }
+  },
   credentials: true
 }));
 app.use(express.json());

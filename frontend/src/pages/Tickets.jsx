@@ -89,7 +89,8 @@ const Tickets = () => {
 
       {/* Tickets List */}
       <div className="card">
-        <div className="overflow-x-auto">
+        {/* Desktop Table View */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="text-left text-sm text-gray-500 border-b">
@@ -151,6 +152,60 @@ const Tickets = () => {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Card View */}
+        <div className="md:hidden space-y-4">
+          {tickets.map((ticket) => (
+            <Link 
+              key={ticket.id}
+              to={`/tickets/${ticket.id}`}
+              className="block p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1">
+                  <p className="text-primary-600 font-semibold text-sm">{ticket.ticketNumber}</p>
+                  <p className="font-medium text-gray-900 mt-1">{ticket.customerName}</p>
+                  <p className="text-sm text-gray-600">{ticket.customerPhone}</p>
+                </div>
+                <div className="flex flex-col gap-1 items-end">
+                  <StatusBadge status={ticket.status} />
+                  <PriorityBadge priority={ticket.priority} />
+                </div>
+              </div>
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Motherboard:</span>
+                  <span className="font-medium text-gray-900">{ticket.motherboardBrand}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Model:</span>
+                  <span className="text-gray-700">{ticket.motherboardType}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Assigned:</span>
+                  <span className="text-gray-700">{ticket.assignedTo?.name || '-'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Date:</span>
+                  <span className="text-gray-700">{new Date(ticket.createdAt).toLocaleDateString()}</span>
+                </div>
+              </div>
+            </Link>
+          ))}
+          {tickets.length === 0 && (
+            <div className="py-12 text-center text-gray-500">
+              <div className="flex flex-col items-center">
+                <Search className="h-12 w-12 text-gray-300 mb-4" />
+                <p>No tickets found</p>
+                {canCreateTicket && (
+                  <Link to="/tickets/new" className="text-primary-600 hover:text-primary-700 mt-2">
+                    Create your first ticket
+                  </Link>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
