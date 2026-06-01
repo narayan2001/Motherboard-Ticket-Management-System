@@ -346,7 +346,7 @@ Please visit our service center to collect your motherboard and make the payment
 
 Thank you for choosing our service! 😊`;
 
-      await sendWhatsAppNotification(ticket.customerPhone, message);
+      await sendWhatsAppNotification(ticket.customerPhone, message, req.params.id, 'REPAIR_COMPLETED');
     }
     
     // Send WhatsApp notification when repair starts
@@ -365,7 +365,7 @@ ${ticket.diagnosis?.estimatedCompletionDays ? `⏱️ Estimated Completion: ${ti
 
 We'll notify you once it's complete! 😊`;
 
-      await sendWhatsAppNotification(ticket.customerPhone, message);
+      await sendWhatsAppNotification(ticket.customerPhone, message, req.params.id, 'REPAIR_STARTED');
     }
 
     res.json({
@@ -541,7 +541,7 @@ We're now proceeding with the repair. You'll be notified once it's completed!
 
 Thank you! 😊`;
       
-      await sendWhatsAppNotification(ticket.customerPhone, message);
+      await sendWhatsAppNotification(ticket.customerPhone, message, req.params.id, 'MANUAL_APPROVAL');
     } else if (approvalStatus === 'DECLINED') {
       const message = `❌ Repair DECLINED - Ticket ${ticket.ticketNumber}
 
@@ -551,7 +551,7 @@ If you have any questions or wish to proceed, please contact us.
 
 Thank you!`;
       
-      await sendWhatsAppNotification(ticket.customerPhone, message);
+      await sendWhatsAppNotification(ticket.customerPhone, message, req.params.id, 'MANUAL_DECLINE');
     }
 
     res.json({

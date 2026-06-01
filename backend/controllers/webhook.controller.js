@@ -91,7 +91,8 @@ exports.handleWhatsAppWebhook = async (req, res) => {
       ? `✅ Thank you! Your repair for ticket ${ticket.ticketNumber} has been APPROVED. We'll proceed with the repair. Total cost: ₹${ticket.diagnosis.totalCost}`
       : `❌ We've received your response. Ticket ${ticket.ticketNumber} has been DECLINED. Please contact us if you have any questions.`;
     
-    await sendWhatsAppNotification(customerPhone, confirmationMessage);
+    const messageType = approvalStatus === 'APPROVED' ? 'AUTO_APPROVAL_CONFIRMATION' : 'AUTO_DECLINE_CONFIRMATION';
+    await sendWhatsAppNotification(customerPhone, confirmationMessage, ticket.id, messageType);
 
     res.status(200).send('OK');
   } catch (error) {
