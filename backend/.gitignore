@@ -1,28 +1,13 @@
-# Dependencies
 node_modules/
-package-lock.json
-
-# Environment variables
 .env
-
-# Uploads
+.env.local
+.env.production
+.env.temp
+*.log
+.DS_Store
 uploads/*
 !uploads/.gitkeep
-
-# Logs
-logs/
-*.log
-npm-debug.log*
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Prisma
-prisma/migrations/
+prisma/dev.db
+prisma/dev.db-journal
+*.sqlite
+*.db
