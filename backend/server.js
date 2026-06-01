@@ -13,6 +13,7 @@ const ticketRoutes = require('./routes/ticket.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
 const motherboardRoutes = require('./routes/motherboard.routes');
 const seedRoutes = require('./routes/seed.routes');
+const webhookRoutes = require('./routes/webhook.routes');
 
 // Initialize express app
 const app = express();
@@ -58,6 +59,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // API Routes
+app.use('/api/webhooks', webhookRoutes); // Webhooks (no auth required)
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/tickets', ticketRoutes);
