@@ -369,8 +369,8 @@ exports.submitDiagnosis = async (req, res, next) => {
         diagnosisNotes,
         repairSolution,
         partsRequired,
-        partsCost: parseFloat(partsCost || 0),
-        laborCost: parseFloat(laborCost || 0),
+        partsCost: partsCost || 0,
+        laborCost: laborCost || 0,
         totalCost,
         estimatedCompletionDays: parseInt(estimatedCompletionDays || 0),
         diagnosedById: req.user.id
@@ -379,8 +379,8 @@ exports.submitDiagnosis = async (req, res, next) => {
         diagnosisNotes,
         repairSolution,
         partsRequired,
-        partsCost: parseFloat(partsCost || 0),
-        laborCost: parseFloat(laborCost || 0),
+        partsCost: partsCost || 0,
+        laborCost: laborCost || 0,
         totalCost,
         estimatedCompletionDays: parseInt(estimatedCompletionDays || 0)
       }
