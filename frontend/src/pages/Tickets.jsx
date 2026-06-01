@@ -4,11 +4,12 @@ import { ticketService } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { StatusBadge, PriorityBadge } from '../components/StatusBadge'
-import { Plus, Search, Filter } from 'lucide-react'
+import { Plus, Search, Filter, RefreshCw } from 'lucide-react'
 
 const Tickets = () => {
   const [tickets, setTickets] = useState([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const { user } = useAuth()
@@ -17,8 +18,18 @@ const Tickets = () => {
     fetchTickets()
   }, [search, statusFilter])
 
-  const fetchTickets = async () => {
+  useEffect(() => {
+    // Auto-refresh every 15 seconds
+    const interval = setInterval(() => {
+      fetchTickets(true) // Silent refresh
+    }, 15000)
+
+    return () => clearInterval(interval)
+  }, [search, statusFilter])
+
+  const fetchTickets = async (silent = false) => {
     try {
+      if (!silent) setLoading(true)
       const params = {}
       if (search) params.search = search
       if (statusFilter) params.status = statusFilter
@@ -28,8 +39,14 @@ const Tickets = () => {
     } catch (error) {
       console.error('Failed to fetch tickets:', error)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
+  }
+
+  const handleManualRefresh = async () => {
+    setRefreshing(true)
+    await fetchTickets(true)
+    setTimeout(() => setRefreshing(false), 500)
   }
 
   const canCreateTicket = ['SUPER_ADMIN', 'RECEPTIONIST'].includes(user?.role)
@@ -44,12 +61,22 @@ const Tickets = () => {
           <h1 className="text-3xl font-bold text-gray-900">Tickets</h1>
           <p className="text-gray-500 mt-1">Manage all repair tickets</p>
         </div>
-        {canCreateTicket && (
-          <Link to="/tickets/new" className="btn btn-primary inline-flex items-center">
-            <Plus className="h-5 w-5 mr-2" />
-            Create Ticket
-          </Link>
-        )}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleManualRefresh}
+            disabled={refreshing}
+            className="p-2 text-gray-600 hover:text-primary-600 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Refresh tickets"
+          >
+            <RefreshCw className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
+          {canCreateTicket && (
+            <Link to="/tickets/new" className="btn btn-primary inline-flex items-center">
+              <Plus className="h-5 w-5 mr-2" />
+              Create Ticket
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Filters */}

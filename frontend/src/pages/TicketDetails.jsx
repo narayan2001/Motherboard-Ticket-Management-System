@@ -4,7 +4,7 @@ import { ticketService, userService } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { StatusBadge, PriorityBadge } from '../components/StatusBadge'
-import { ArrowLeft, Send } from 'lucide-react'
+import { ArrowLeft, Send, RefreshCw } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const TicketDetails = () => {
@@ -14,6 +14,7 @@ const TicketDetails = () => {
   const [ticket, setTicket] = useState(null)
   const [employees, setEmployees] = useState([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [showDiagnosis, setShowDiagnosis] = useState(false)
   const [showPayment, setShowPayment] = useState(false)
 
@@ -36,18 +37,37 @@ const TicketDetails = () => {
     if (user?.role === 'SUPER_ADMIN') {
       fetchEmployees()
     }
-  }, [id])
 
-  const fetchTicket = async () => {
+    // Auto-refresh every 10 seconds for tickets awaiting approval
+    const interval = setInterval(() => {
+      if (ticket?.status === 'AWAITING_APPROVAL') {
+        fetchTicket(true) // Silent refresh
+      }
+    }, 10000) // 10 seconds
+
+    return () => clearInterval(interval)
+  }, [id, ticket?.status])
+
+  const fetchTicket = async (silent = false) => {
     try {
+      if (!silent) setLoading(true)
       const response = await ticketService.getOne(id)
       setTicket(response.data)
     } catch (error) {
-      toast.error('Failed to load ticket')
-      navigate('/tickets')
+      if (!silent) {
+        toast.error('Failed to load ticket')
+        navigate('/tickets')
+      }
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
+  }
+
+  const handleManualRefresh = async () => {
+    setRefreshing(true)
+    await fetchTicket(true)
+    setTimeout(() => setRefreshing(false), 500)
+    toast.success('Ticket refreshed!')
   }
 
   const fetchEmployees = async () => {
@@ -133,10 +153,30 @@ const TicketDetails = () => {
           </div>
         </div>
         <div className="flex items-center space-x-4">
+          <button
+            onClick={handleManualRefresh}
+            disabled={refreshing}
+            className="p-2 text-gray-600 hover:text-primary-600 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Refresh ticket"
+          >
+            <RefreshCw className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
           <StatusBadge status={ticket.status} />
           <PriorityBadge priority={ticket.priority} />
         </div>
       </div>
+
+      {/* Auto-refresh indicator for awaiting approval */}
+      {ticket.status === 'AWAITING_APPROVAL' && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-center gap-2">
+            <RefreshCw className="h-4 w-4 text-yellow-600 animate-spin" />
+            <p className="text-sm text-yellow-800">
+              Auto-refreshing every 10 seconds to check for customer response via WhatsApp...
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Customer Info */}
       <div className="card">
