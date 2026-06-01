@@ -12,6 +12,7 @@ const userRoutes = require('./routes/user.routes');
 const ticketRoutes = require('./routes/ticket.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
 const motherboardRoutes = require('./routes/motherboard.routes');
+const seedRoutes = require('./routes/seed.routes');
 
 // Initialize express app
 const app = express();
@@ -42,6 +43,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/motherboards', motherboardRoutes);
+app.use('/api/admin', seedRoutes);
 
 // 404 handler
 app.use((req, res) => {
