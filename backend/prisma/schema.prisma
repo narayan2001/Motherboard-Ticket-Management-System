@@ -1,0 +1,161 @@
+// Prisma Schema for Motherboard Ticket Management System - SQLite Compatible
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String   @id @default(uuid())
+  email             String   @unique
+  password          String
+  name              String
+  role              String   // SUPER_ADMIN, EMPLOYEE, RECEPTIONIST
+  phone             String?
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  createdTickets    Ticket[] @relation("CreatedBy")
+  assignedTickets   Ticket[] @relation("AssignedTo")
+  diagnoses         TicketDiagnosis[]
+  payments          Payment[]
+  ticketHistory     TicketHistory[]
+
+  @@map("users")
+}
+
+model Ticket {
+  id                String         @id @default(uuid())
+  ticketNumber      String         @unique
+  customerName      String
+  customerPhone     String
+  customerEmail     String?
+  motherboardBrand  String
+  motherboardType   String
+  initialIssue      String
+  status            String         @default("CREATED")
+  priority          String         @default("MEDIUM")
+  imagePath         String?
+  createdById       String
+  assignedToId      String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  // Relations
+  createdBy         User           @relation("CreatedBy", fields: [createdById], references: [id])
+  assignedTo        User?          @relation("AssignedTo", fields: [assignedToId], references: [id])
+  diagnosis         TicketDiagnosis?
+  approval          TicketApproval?
+  payment           Payment?
+  history           TicketHistory[]
+  notifications     Notification[]
+
+  @@map("tickets")
+}
+
+model TicketDiagnosis {
+  id                    String   @id @default(uuid())
+  ticketId              String   @unique
+  diagnosisNotes        String
+  repairSolution        String?
+  partsRequired         String?
+  partsCost             Float    @default(0)
+  laborCost             Float    @default(0)
+  totalCost             Float
+  estimatedCompletionDays Int?
+  diagnosedById         String
+  createdAt             DateTime @default(now())
+
+  // Relations
+  ticket                Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  diagnosedBy           User     @relation(fields: [diagnosedById], references: [id])
+  approval              TicketApproval?
+
+  @@map("ticket_diagnoses")
+}
+
+model TicketApproval {
+  id                   String         @id @default(uuid())
+  ticketId             String         @unique
+  diagnosisId          String         @unique
+  approvalStatus       String         @default("PENDING")
+  customerResponseNotes String?
+  responseDate         DateTime?
+  notificationSentAt   DateTime?
+  createdAt            DateTime       @default(now())
+
+  // Relations
+  ticket               Ticket         @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  diagnosis            TicketDiagnosis @relation(fields: [diagnosisId], references: [id], onDelete: Cascade)
+
+  @@map("ticket_approvals")
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  ticketId        String        @unique
+  amountPaid      Float
+  paymentMethod   String
+  paymentDate     DateTime      @default(now())
+  collectedById   String
+  receiptNumber   String?
+  createdAt       DateTime      @default(now())
+
+  // Relations
+  ticket          Ticket        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  collectedBy     User          @relation(fields: [collectedById], references: [id])
+
+  @@map("payments")
+}
+
+model TicketHistory {
+  id                 String   @id @default(uuid())
+  ticketId           String
+  changedById        String
+  actionType         String
+  actionDescription  String
+  oldStatus          String?
+  newStatus          String?
+  createdAt          DateTime @default(now())
+
+  // Relations
+  ticket             Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  changedBy          User     @relation(fields: [changedById], references: [id])
+
+  @@map("ticket_history")
+}
+
+model Notification {
+  id               String             @id @default(uuid())
+  ticketId         String
+  recipientPhone   String
+  messageType      String
+  messageContent   String
+  deliveryStatus   String             @default("SENT")
+  sentAt           DateTime           @default(now())
+  deliveredAt      DateTime?
+  errorMessage     String?
+  createdAt        DateTime           @default(now())
+
+  // Relations
+  ticket           Ticket             @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model MotherboardType {
+  id          String   @id @default(uuid())
+  brandName   String
+  modelSeries String
+  category    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@map("motherboard_types")
+  @@unique([brandName, modelSeries])
+}
