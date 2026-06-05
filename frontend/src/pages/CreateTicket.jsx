@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ticketService } from '../services/api'
+import { compressImages } from '../utils/imageCompression'
 import { ArrowLeft, Upload, Camera, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Link } from 'react-router-dom'
@@ -28,7 +29,7 @@ const CreateTicket = () => {
     })
   }
 
-  const handleImageSelect = (files) => {
+  const handleImageSelect = async (files) => {
     if (!files || files.length === 0) return
 
     const totalImages = images.length + files.length
@@ -37,11 +38,28 @@ const CreateTicket = () => {
       return
     }
 
-    const newImages = Array.from(files).map(file => ({
-      file,
-      preview: URL.createObjectURL(file)
-    }))
-    setImages([...images, ...newImages])
+    toast.loading('Compressing images...', { id: 'compress' })
+    
+    try {
+      // Compress images to reduce memory usage
+      const compressedFiles = await compressImages(files, {
+        maxWidth: 1920,
+        maxHeight: 1920,
+        quality: 0.8,
+        maxSizeMB: 1
+      })
+      
+      const newImages = compressedFiles.map(file => ({
+        file,
+        preview: URL.createObjectURL(file)
+      }))
+      
+      setImages([...images, ...newImages])
+      toast.success('Images added successfully', { id: 'compress' })
+    } catch (error) {
+      console.error('Image compression error:', error)
+      toast.error('Failed to process images', { id: 'compress' })
+    }
   }
 
   const removeImage = (index) => {

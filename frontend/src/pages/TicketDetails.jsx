@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { ticketService, getImageURL } from '../services/api'
+import { compressImages } from '../utils/imageCompression'
 import { useAuth } from '../contexts/AuthContext'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { StatusBadge, PaymentStatusBadge } from '../components/StatusBadge'
@@ -90,17 +91,27 @@ const TicketDetails = () => {
       return
     }
 
+    toast.loading('Compressing and uploading images...', { id: 'upload' })
+
     try {
+      // Compress images to reduce memory usage and upload size
+      const compressedFiles = await compressImages(files, {
+        maxWidth: 1920,
+        maxHeight: 1920,
+        quality: 0.8,
+        maxSizeMB: 1
+      })
+
       const formData = new FormData()
-      Array.from(files).forEach(file => {
+      compressedFiles.forEach(file => {
         formData.append('images', file)
       })
 
       await ticketService.addImages(id, formData)
-      toast.success('Images uploaded successfully')
+      toast.success('Images uploaded successfully', { id: 'upload' })
       fetchTicket()
     } catch (error) {
-      toast.error('Failed to upload images')
+      toast.error('Failed to upload images', { id: 'upload' })
     }
   }
 
