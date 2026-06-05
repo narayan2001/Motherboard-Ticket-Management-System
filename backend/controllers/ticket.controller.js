@@ -280,15 +280,12 @@ exports.submitDiagnosis = async (req, res, next) => {
       diagnosisNotes,
       repairSolution,
       partsRequired,
-      partsCost,
-      laborCost,
+      repairCost,
       estimatedCompletionDays
     } = req.body;
 
-    // Parse costs as floats
-    const parsedPartsCost = parseFloat(partsCost || 0);
-    const parsedLaborCost = parseFloat(laborCost || 0);
-    const totalCost = parsedPartsCost + parsedLaborCost;
+    // Parse cost as float
+    const parsedRepairCost = parseFloat(repairCost || 0);
 
     const ticket = await prisma.ticket.findUnique({
       where: { id: req.params.id }
@@ -309,9 +306,7 @@ exports.submitDiagnosis = async (req, res, next) => {
         diagnosisNotes,
         repairSolution,
         partsRequired,
-        partsCost: parsedPartsCost,
-        laborCost: parsedLaborCost,
-        totalCost,
+        repairCost: parsedRepairCost,
         estimatedCompletionDays: parseInt(estimatedCompletionDays || 0),
         diagnosedById: req.user.id
       },
@@ -319,9 +314,7 @@ exports.submitDiagnosis = async (req, res, next) => {
         diagnosisNotes,
         repairSolution,
         partsRequired,
-        partsCost: parsedPartsCost,
-        laborCost: parsedLaborCost,
-        totalCost,
+        repairCost: parsedRepairCost,
         estimatedCompletionDays: parseInt(estimatedCompletionDays || 0)
       }
     });

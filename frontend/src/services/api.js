@@ -1,6 +1,7 @@
 import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+const BASE_URL = API_URL.replace('/api', '') // Remove /api for static file access
 
 const api = axios.create({
   baseURL: API_URL,
@@ -8,6 +9,13 @@ const api = axios.create({
     'Content-Type': 'application/json'
   }
 })
+
+// Helper function to get full image URL
+export const getImageURL = (imagePath) => {
+  if (!imagePath) return null
+  if (imagePath.startsWith('http')) return imagePath // Already full URL
+  return `${BASE_URL}${imagePath}` // Prepend base URL
+}
 
 api.interceptors.request.use(
   (config) => {

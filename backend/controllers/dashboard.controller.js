@@ -16,19 +16,15 @@ exports.getDashboardStats = async (req, res, next) => {
       };
     }
 
-    // Role-based filtering
+    // No role-based filtering needed anymore (no EMPLOYEE role)
     let ticketFilter = { ...dateFilter };
-    if (req.user.role === 'EMPLOYEE') {
-      ticketFilter.assignedToId = req.user.id;
-    }
 
     const [
       totalTickets,
       ticketsByStatus,
-      ticketsByPriority,
+      ticketsByPaymentStatus,
       totalRevenue,
-      recentTickets,
-      employeeStats
+      recentTickets
     ] = await Promise.all([
       // Total tickets count
       prisma.ticket.count({ where: ticketFilter }),
@@ -40,15 +36,15 @@ exports.getDashboardStats = async (req, res, next) => {
         _count: true
       }),
 
-      // Tickets by priority
+      // Tickets by payment status
       prisma.ticket.groupBy({
-        by: ['priority'],
+        by: ['paymentStatus'],
         where: ticketFilter,
         _count: true
       }),
 
-      // Total revenue (only for SUPER_ADMIN)
-      req.user.role === 'SUPER_ADMIN'
+      // Total revenue (only for SUPER_ADMIN and RECEPTIONIST)
+      ['SUPER_ADMIN', 'RECEPTIONIST'].includes(req.user.role)
         ? prisma.payment.aggregate({
             _sum: { amountPaid: true },
             where: {
@@ -61,32 +57,11 @@ exports.getDashboardStats = async (req, res, next) => {
       prisma.ticket.findMany({
         where: ticketFilter,
         include: {
-          createdBy: { select: { name: true } },
-          assignedTo: { select: { name: true } }
+          createdBy: { select: { name: true } }
         },
         orderBy: { createdAt: 'desc' },
         take: 10
-      }),
-
-      // Employee workload (only for admin)
-      req.user.role === 'SUPER_ADMIN' 
-        ? prisma.user.findMany({
-            where: { role: 'EMPLOYEE', isActive: true },
-            select: {
-              id: true,
-              name: true,
-              _count: {
-                select: {
-                  assignedTickets: {
-                    where: {
-                      status: { in: ['ASSIGNED', 'IN_DIAGNOSIS', 'IN_PROGRESS'] }
-                    }
-                  }
-                }
-              }
-            }
-          })
-        : []
+      })
     ]);
 
     const statusCounts = ticketsByStatus.reduce((acc, item) => {
@@ -94,8 +69,8 @@ exports.getDashboardStats = async (req, res, next) => {
       return acc;
     }, {});
 
-    const priorityCounts = ticketsByPriority.reduce((acc, item) => {
-      acc[item.priority] = item._count;
+    const paymentCounts = ticketsByPaymentStatus.reduce((acc, item) => {
+      acc[item.paymentStatus] = item._count;
       return acc;
     }, {});
 
@@ -104,10 +79,9 @@ exports.getDashboardStats = async (req, res, next) => {
       data: {
         totalTickets,
         statusCounts,
-        priorityCounts,
+        paymentCounts,
         totalRevenue: totalRevenue._sum.amountPaid || 0,
-        recentTickets,
-        employeeStats
+        recentTickets
       }
     });
   } catch (error) {
@@ -156,7 +130,6 @@ exports.getReports = async (req, res, next) => {
         where: dateFilter,
         include: {
           createdBy: { select: { name: true } },
-          assignedTo: { select: { name: true } },
           diagnosis: true,
           payment: true
         },

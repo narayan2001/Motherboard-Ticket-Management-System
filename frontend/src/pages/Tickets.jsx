@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { ticketService } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -11,12 +11,22 @@ const Tickets = () => {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [search, setSearch] = useState('')
+  const [searchQuery, setSearchQuery] = useState('') // Actual query used for API call
   const [statusFilter, setStatusFilter] = useState('')
   const { user } = useAuth()
+  const [searchParams] = useSearchParams()
+
+  useEffect(() => {
+    // Get status from URL query params if present
+    const statusFromUrl = searchParams.get('status')
+    if (statusFromUrl) {
+      setStatusFilter(statusFromUrl)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     fetchTickets()
-  }, [search, statusFilter])
+  }, [searchQuery, statusFilter])
 
   useEffect(() => {
     // Auto-refresh every 15 seconds
@@ -25,13 +35,13 @@ const Tickets = () => {
     }, 15000)
 
     return () => clearInterval(interval)
-  }, [search, statusFilter])
+  }, [searchQuery, statusFilter])
 
   const fetchTickets = async (silent = false) => {
     try {
       if (!silent) setLoading(true)
       const params = {}
-      if (search) params.search = search
+      if (searchQuery) params.search = searchQuery
       if (statusFilter) params.status = statusFilter
       
       const response = await ticketService.getAll(params)
@@ -47,6 +57,12 @@ const Tickets = () => {
     setRefreshing(true)
     await fetchTickets(true)
     setTimeout(() => setRefreshing(false), 500)
+  }
+
+  const handleSearchKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      setSearchQuery(search)
+    }
   }
 
   const canCreateTicket = ['SUPER_ADMIN', 'RECEPTIONIST'].includes(user?.role)
@@ -87,10 +103,11 @@ const Tickets = () => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search by ticket #, customer name, or phone..."
+                placeholder="Search by ticket #, customer name, or phone... (Press Enter to search)"
                 className="input pl-10"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
+                onKeyPress={handleSearchKeyPress}
               />
             </div>
           </div>

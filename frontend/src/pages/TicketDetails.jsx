@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ticketService } from '../services/api'
+import { ticketService, getImageURL } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { StatusBadge, PaymentStatusBadge } from '../components/StatusBadge'
@@ -23,8 +23,7 @@ const TicketDetails = () => {
   const [diagnosis, setDiagnosis] = useState({
     diagnosisNotes: '',
     partsRequired: '',
-    partsCost: '',
-    laborCost: '',
+    repairCost: '',
     estimatedCompletionDays: ''
   })
   const [payment, setPayment] = useState({
@@ -228,14 +227,14 @@ const TicketDetails = () => {
             {ticket.images.map((image, index) => (
               <div key={index} className="relative group">
                 <img 
-                  src={image} 
+                  src={getImageURL(image)} 
                   alt={`Ticket image ${index + 1}`}
                   className="w-full h-32 object-cover rounded-lg cursor-pointer"
-                  onClick={() => setSelectedImage(image)}
+                  onClick={() => setSelectedImage(getImageURL(image))}
                 />
                 <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all rounded-lg flex items-center justify-center gap-2">
                   <button 
-                    onClick={() => setSelectedImage(image)}
+                    onClick={() => setSelectedImage(getImageURL(image))}
                     className="opacity-0 group-hover:opacity-100 p-2 bg-white rounded-full hover:bg-gray-100 transition-all"
                   >
                     <ZoomIn className="h-4 w-4" />
@@ -287,27 +286,15 @@ const TicketDetails = () => {
                   onChange={(e) => setDiagnosis({...diagnosis, partsRequired: e.target.value})}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="label">Parts Cost (₹)</label>
-                  <input 
-                    type="number"
-                    className="input"
-                    required
-                    value={diagnosis.partsCost}
-                    onChange={(e) => setDiagnosis({...diagnosis, partsCost: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <label className="label">Labor Cost (₹)</label>
-                  <input 
-                    type="number"
-                    className="input"
-                    required
-                    value={diagnosis.laborCost}
-                    onChange={(e) => setDiagnosis({...diagnosis, laborCost: e.target.value})}
-                  />
-                </div>
+              <div>
+                <label className="label">Repair Cost (₹)</label>
+                <input 
+                  type="number"
+                  className="input"
+                  required
+                  value={diagnosis.repairCost}
+                  onChange={(e) => setDiagnosis({...diagnosis, repairCost: e.target.value})}
+                />
               </div>
               <div>
                 <label className="label">Estimated Completion (days)</label>
@@ -346,18 +333,16 @@ const TicketDetails = () => {
                 <p>{ticket.diagnosis.partsRequired}</p>
               </div>
             )}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm text-gray-600">Parts Cost</label>
-                <p className="font-medium">₹{ticket.diagnosis.partsCost}</p>
+                <label className="text-sm text-gray-600">Repair Cost</label>
+                <p className="font-bold text-lg">₹{ticket.diagnosis.repairCost}</p>
               </div>
               <div>
-                <label className="text-sm text-gray-600">Labor Cost</label>
-                <p className="font-medium">₹{ticket.diagnosis.laborCost}</p>
-              </div>
-              <div>
-                <label className="text-sm text-gray-600">Total Cost</label>
-                <p className="font-bold text-lg">₹{ticket.diagnosis.totalCost}</p>
+                <label className="text-sm text-gray-600">Estimated Completion</label>
+                <p className="font-medium">
+                  {ticket.diagnosis.estimatedCompletionDays} day(s)
+                </p>
               </div>
             </div>
           </div>
@@ -399,7 +384,7 @@ const TicketDetails = () => {
                   type="number"
                   className="input"
                   required
-                  placeholder={ticket.diagnosis?.totalCost || ''}
+                  placeholder={ticket.diagnosis?.repairCost || ''}
                   value={payment.amountPaid}
                   onChange={(e) => setPayment({...payment, amountPaid: e.target.value})}
                 />
