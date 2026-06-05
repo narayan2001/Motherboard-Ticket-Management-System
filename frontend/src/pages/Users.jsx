@@ -70,41 +70,78 @@ const Users = () => {
         </button>
       </div>
 
-      <div className="card">
-        <table className="w-full">
-          <thead>
-            <tr className="text-left text-sm text-gray-500 border-b">
-              <th className="pb-3 font-medium">Name</th>
-              <th className="pb-3 font-medium">Email</th>
-              <th className="pb-3 font-medium">Phone</th>
-              <th className="pb-3 font-medium">Role</th>
-              <th className="pb-3 font-medium">Status</th>
-              <th className="pb-3 font-medium">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="text-sm">
-            {users.map(user => (
-              <tr key={user.id} className="border-b last:border-0 hover:bg-gray-50">
-                <td className="py-4 font-medium">{user.name}</td>
-                <td className="py-4">{user.email}</td>
-                <td className="py-4">{user.phone || '-'}</td>
-                <td className="py-4">
-                  <span className="badge bg-blue-100 text-blue-800">{user.role}</span>
-                </td>
-                <td className="py-4">
-                  <span className={`badge ${user.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                    {user.isActive ? 'Active' : 'Inactive'}
-                  </span>
-                </td>
-                <td className="py-4">
-                  <button onClick={() => handleDelete(user.id)} className="text-red-600 hover:text-red-700">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </td>
+      <div className="card overflow-x-auto">
+        {/* Desktop Table View */}
+        <div className="hidden md:block">
+          <table className="w-full">
+            <thead>
+              <tr className="text-left text-sm text-gray-500 border-b">
+                <th className="pb-3 font-medium">User</th>
+                <th className="pb-3 font-medium">Role</th>
+                <th className="pb-3 font-medium">Status</th>
+                <th className="pb-3 font-medium">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="text-sm">
+              {users.map(user => (
+                <tr key={user.id} className="border-b last:border-0 hover:bg-gray-50 transition-colors">
+                  <td className="py-3">
+                    <div>
+                      <p className="font-medium text-gray-900">{user.name}</p>
+                      <p className="text-xs text-gray-500">{user.email}</p>
+                      {user.phone && <p className="text-xs text-gray-500">{user.phone}</p>}
+                    </div>
+                  </td>
+                  <td className="py-3">
+                    <span className="badge bg-blue-100 text-blue-800">{user.role}</span>
+                  </td>
+                  <td className="py-3">
+                    <span className={`badge ${user.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                      {user.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                  <td className="py-3">
+                    <button 
+                      onClick={() => handleDelete(user.id)} 
+                      className="text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded active:bg-red-100 transition-colors"
+                      title="Delete user"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Mobile Card View */}
+        <div className="md:hidden space-y-3">
+          {users.map(user => (
+            <div key={user.id} className="p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-gray-900 truncate">{user.name}</p>
+                  <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                  {user.phone && <p className="text-xs text-gray-500 mt-0.5">{user.phone}</p>}
+                </div>
+                <button 
+                  onClick={() => handleDelete(user.id)} 
+                  className="text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded active:bg-red-100 transition-colors ml-2 flex-shrink-0"
+                  title="Delete user"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="badge bg-blue-100 text-blue-800">{user.role}</span>
+                <span className={`badge ${user.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                  {user.isActive ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Create User Modal */}
