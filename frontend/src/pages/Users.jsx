@@ -12,7 +12,7 @@ const Users = () => {
     email: '',
     password: '',
     name: '',
-    role: 'EMPLOYEE',
+    role: 'RECEPTIONIST',
     phone: ''
   })
 
@@ -37,7 +37,7 @@ const Users = () => {
       await userService.create(formData)
       toast.success('User created successfully')
       setShowModal(false)
-      setFormData({ email: '', password: '', name: '', role: 'EMPLOYEE', phone: '' })
+      setFormData({ email: '', password: '', name: '', role: 'RECEPTIONIST', phone: '' })
       fetchUsers()
     } catch (error) {
       toast.error('Failed to create user')
@@ -137,7 +137,6 @@ const Users = () => {
                 <label className="label">Role</label>
                 <select className="input" value={formData.role}
                   onChange={(e) => setFormData({...formData, role: e.target.value})}>
-                  <option value="EMPLOYEE">Employee</option>
                   <option value="RECEPTIONIST">Receptionist</option>
                   <option value="SUPER_ADMIN">Super Admin</option>
                 </select>

@@ -20,12 +20,7 @@ exports.getAllUsers = async (req, res, next) => {
         role: true,
         phone: true,
         isActive: true,
-        createdAt: true,
-        _count: {
-          select: {
-            assignedTickets: true
-          }
-        }
+        createdAt: true
       },
       orderBy: { createdAt: 'desc' }
     });
