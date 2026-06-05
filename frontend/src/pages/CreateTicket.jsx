@@ -189,6 +189,7 @@ const CreateTicket = () => {
                 type="text"
                 name="motherboardBrand"
                 required
+                minLength="2"
                 className="input"
                 value={formData.motherboardBrand}
                 onChange={handleChange}
@@ -201,6 +202,7 @@ const CreateTicket = () => {
                 type="text"
                 name="motherboardType"
                 required
+                minLength="2"
                 className="input"
                 value={formData.motherboardType}
                 onChange={handleChange}
@@ -212,12 +214,14 @@ const CreateTicket = () => {
               <textarea
                 name="initialIssue"
                 required
+                minLength="10"
                 rows="4"
                 className="input"
                 value={formData.initialIssue}
                 onChange={handleChange}
-                placeholder="Describe the problem in detail..."
+                placeholder="Describe the problem in detail (min 10 characters)..."
               />
+              <p className="text-xs text-gray-500 mt-1">Provide detailed information about the motherboard issue</p>
             </div>
           </div>
         </div>
