@@ -136,30 +136,29 @@ const Dashboard = () => {
 
       {/* Recent Tickets */}
       <div className="card">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-gray-900">Recent Tickets</h2>
-          <Link to="/tickets" className="text-primary-600 hover:text-primary-700 font-medium">
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900">Recent Tickets</h2>
+          <Link to="/tickets" className="text-sm sm:text-base text-primary-600 hover:text-primary-700 font-medium">
             View All →
           </Link>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Desktop Table View */}
+        <div className="hidden lg:block overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="text-left text-sm text-gray-500 border-b">
                 <th className="pb-3 font-medium">Ticket #</th>
                 <th className="pb-3 font-medium">Customer</th>
-                <th className="pb-3 font-medium">Phone</th>
                 <th className="pb-3 font-medium">Motherboard</th>
                 <th className="pb-3 font-medium">Status</th>
-                <th className="pb-3 font-medium">Created By</th>
                 <th className="pb-3 font-medium">Date</th>
               </tr>
             </thead>
             <tbody className="text-sm">
               {stats?.recentTickets?.map((ticket) => (
-                <tr key={ticket.id} className="border-b last:border-0 hover:bg-gray-50">
-                  <td className="py-4">
+                <tr key={ticket.id} className="border-b last:border-0 hover:bg-gray-50 transition-colors">
+                  <td className="py-3">
                     <Link 
                       to={`/tickets/${ticket.id}`}
                       className="text-primary-600 hover:text-primary-700 font-medium"
@@ -167,34 +166,74 @@ const Dashboard = () => {
                       {ticket.ticketNumber}
                     </Link>
                   </td>
-                  <td className="py-4 font-medium">{ticket.customerName}</td>
-                  <td className="py-4 text-gray-600">{ticket.customerPhone}</td>
-                  <td className="py-4">
+                  <td className="py-3">
                     <div>
-                      <p className="font-medium">{ticket.motherboardBrand}</p>
+                      <p className="font-medium text-gray-900">{ticket.customerName}</p>
+                      <p className="text-xs text-gray-500">{ticket.customerPhone}</p>
+                    </div>
+                  </td>
+                  <td className="py-3">
+                    <div>
+                      <p className="font-medium text-gray-900">{ticket.motherboardBrand}</p>
                       <p className="text-xs text-gray-500">{ticket.motherboardType}</p>
                     </div>
                   </td>
-                  <td className="py-4">
+                  <td className="py-3">
                     <StatusBadge status={ticket.status} />
                   </td>
-                  <td className="py-4 text-gray-600">
-                    {ticket.createdBy?.name || '-'}
-                  </td>
-                  <td className="py-4 text-gray-500">
+                  <td className="py-3 text-gray-500">
                     {new Date(ticket.createdAt).toLocaleDateString()}
                   </td>
                 </tr>
               ))}
               {(!stats?.recentTickets || stats.recentTickets.length === 0) && (
                 <tr>
-                  <td colSpan="7" className="py-8 text-center text-gray-500">
+                  <td colSpan="5" className="py-8 text-center text-gray-500">
                     No tickets found
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Card View */}
+        <div className="lg:hidden space-y-3">
+          {stats?.recentTickets?.map((ticket) => (
+            <Link 
+              key={ticket.id}
+              to={`/tickets/${ticket.id}`}
+              className="block p-4 bg-gray-50 rounded-lg hover:bg-gray-100 active:bg-gray-200 transition-colors"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-primary-600 font-semibold text-sm mb-1">{ticket.ticketNumber}</p>
+                  <p className="font-medium text-gray-900 truncate">{ticket.customerName}</p>
+                  <p className="text-sm text-gray-600 truncate">{ticket.customerPhone}</p>
+                </div>
+                <StatusBadge status={ticket.status} />
+              </div>
+              <div className="space-y-1.5 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500">Motherboard:</span>
+                  <span className="font-medium text-gray-900 text-right truncate ml-2">{ticket.motherboardBrand}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500">Model:</span>
+                  <span className="text-gray-700 text-right truncate ml-2">{ticket.motherboardType}</span>
+                </div>
+                <div className="flex items-center justify-between pt-1 border-t border-gray-200">
+                  <span className="text-gray-500">Created:</span>
+                  <span className="text-gray-700">{new Date(ticket.createdAt).toLocaleDateString()}</span>
+                </div>
+              </div>
+            </Link>
+          ))}
+          {(!stats?.recentTickets || stats.recentTickets.length === 0) && (
+            <div className="py-12 text-center text-gray-500">
+              <p>No tickets found</p>
+            </div>
+          )}
         </div>
       </div>
 
