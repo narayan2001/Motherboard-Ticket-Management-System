@@ -4,7 +4,7 @@ import { ticketService } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { StatusBadge, PaymentStatusBadge } from '../components/StatusBadge'
-import { Plus, Search, RefreshCw } from 'lucide-react'
+import { Plus, Search, RefreshCw, X } from 'lucide-react'
 
 const Tickets = () => {
   const [tickets, setTickets] = useState([])
@@ -65,6 +65,15 @@ const Tickets = () => {
     }
   }
 
+  const handleSearchClick = () => {
+    setSearchQuery(search)
+  }
+
+  const handleClearSearch = () => {
+    setSearch('')
+    setSearchQuery('')
+  }
+
   const canCreateTicket = ['SUPER_ADMIN', 'RECEPTIONIST'].includes(user?.role)
 
   if (loading) return <LoadingSpinner />
@@ -99,16 +108,32 @@ const Tickets = () => {
       <div className="card">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by ticket #, customer name, or phone... (Press Enter to search)"
-                className="input pl-10"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                onKeyPress={handleSearchKeyPress}
-              />
+            <div className="relative flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search by ticket #, customer name, or phone..."
+                  className="input pl-10 pr-10"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onKeyPress={handleSearchKeyPress}
+                />
+                {search && (
+                  <button
+                    onClick={handleClearSearch}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              <button 
+                onClick={handleSearchClick}
+                className="btn btn-primary px-6"
+              >
+                Search
+              </button>
             </div>
           </div>
           <div>
