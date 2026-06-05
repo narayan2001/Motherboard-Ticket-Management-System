@@ -156,8 +156,53 @@ exports.updateUser = async (req, res, next) => {
 // @route   DELETE /api/users/:id
 exports.deleteUser = async (req, res, next) => {
   try {
+    const userId = req.params.id;
+
+    // Check if user has related data
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        _count: {
+          select: {
+            createdTickets: true,
+            diagnoses: true,
+            payments: true,
+            ticketHistory: true
+          }
+        }
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Prevent deleting super admin if they created tickets/data
+    const hasRelatedData = 
+      user._count.createdTickets > 0 || 
+      user._count.diagnoses > 0 || 
+      user._count.payments > 0 || 
+      user._count.ticketHistory > 0;
+
+    if (hasRelatedData) {
+      // Instead of deleting, deactivate the user
+      await prisma.user.update({
+        where: { id: userId },
+        data: { isActive: false }
+      });
+
+      return res.json({
+        success: true,
+        message: 'User has related data and has been deactivated instead of deleted'
+      });
+    }
+
+    // If no related data, safe to delete
     await prisma.user.delete({
-      where: { id: req.params.id }
+      where: { id: userId }
     });
 
     res.json({

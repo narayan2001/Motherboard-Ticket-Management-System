@@ -45,13 +45,13 @@ const Users = () => {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure?')) return
+    if (!window.confirm('Are you sure you want to delete this user? If the user has created tickets or data, they will be deactivated instead.')) return
     try {
-      await userService.delete(id)
-      toast.success('User deleted')
+      const response = await userService.delete(id)
+      toast.success(response.message || 'User deleted successfully')
       fetchUsers()
     } catch (error) {
-      toast.error('Failed to delete user')
+      toast.error(error.response?.data?.message || 'Failed to delete user')
     }
   }
 
