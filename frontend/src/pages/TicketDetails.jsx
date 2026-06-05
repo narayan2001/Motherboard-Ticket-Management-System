@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ticketService, userService } from '../services/api'
+import { ticketService } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import LoadingSpinner from '../components/LoadingSpinner'
-import { StatusBadge, PriorityBadge } from '../components/StatusBadge'
-import { ArrowLeft, Send, RefreshCw } from 'lucide-react'
+import { StatusBadge, PaymentStatusBadge } from '../components/StatusBadge'
+import { ArrowLeft, Upload, Camera, X, ZoomIn } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const TicketDetails = () => {
@@ -12,14 +12,14 @@ const TicketDetails = () => {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [ticket, setTicket] = useState(null)
-  const [employees, setEmployees] = useState([])
   const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
   const [showDiagnosis, setShowDiagnosis] = useState(false)
   const [showPayment, setShowPayment] = useState(false)
+  const [selectedImage, setSelectedImage] = useState(null)
+  const fileInputRef = useRef(null)
+  const cameraInputRef = useRef(null)
 
   // Form states
-  const [assignTo, setAssignTo] = useState('')
   const [diagnosis, setDiagnosis] = useState({
     diagnosisNotes: '',
     partsRequired: '',
@@ -34,59 +34,17 @@ const TicketDetails = () => {
 
   useEffect(() => {
     fetchTicket()
-    if (user?.role === 'SUPER_ADMIN') {
-      fetchEmployees()
-    }
+  }, [id])
 
-    // Auto-refresh every 10 seconds for tickets awaiting approval
-    const interval = setInterval(() => {
-      if (ticket?.status === 'AWAITING_APPROVAL') {
-        fetchTicket(true) // Silent refresh
-      }
-    }, 10000) // 10 seconds
-
-    return () => clearInterval(interval)
-  }, [id, ticket?.status])
-
-  const fetchTicket = async (silent = false) => {
+  const fetchTicket = async () => {
     try {
-      if (!silent) setLoading(true)
       const response = await ticketService.getOne(id)
       setTicket(response.data)
     } catch (error) {
-      if (!silent) {
-        toast.error('Failed to load ticket')
-        navigate('/tickets')
-      }
+      toast.error('Failed to load ticket')
+      navigate('/tickets')
     } finally {
-      if (!silent) setLoading(false)
-    }
-  }
-
-  const handleManualRefresh = async () => {
-    setRefreshing(true)
-    await fetchTicket(true)
-    setTimeout(() => setRefreshing(false), 500)
-    toast.success('Ticket refreshed!')
-  }
-
-  const fetchEmployees = async () => {
-    try {
-      const response = await userService.getAll({ role: 'EMPLOYEE' })
-      setEmployees(response.data)
-    } catch (error) {
-      console.error('Failed to fetch employees:', error)
-    }
-  }
-
-  const handleAssign = async () => {
-    if (!assignTo) return toast.error('Please select an employee')
-    try {
-      await ticketService.assign(id, assignTo)
-      toast.success('Ticket assigned successfully')
-      fetchTicket()
-    } catch (error) {
-      toast.error('Failed to assign ticket')
+      setLoading(false)
     }
   }
 
@@ -104,21 +62,11 @@ const TicketDetails = () => {
     e.preventDefault()
     try {
       await ticketService.submitDiagnosis(id, diagnosis)
-      toast.success('Diagnosis submitted and notification sent!')
+      toast.success('Diagnosis submitted!')
       setShowDiagnosis(false)
       fetchTicket()
     } catch (error) {
       toast.error('Failed to submit diagnosis')
-    }
-  }
-
-  const handleApprovalUpdate = async (status) => {
-    try {
-      await ticketService.updateApproval(id, { approvalStatus: status })
-      toast.success(`Marked as ${status}`)
-      fetchTicket()
-    } catch (error) {
-      toast.error('Failed to update approval')
     }
   }
 
@@ -134,11 +82,52 @@ const TicketDetails = () => {
     }
   }
 
+  const handleImageUpload = async (files) => {
+    if (!files || files.length === 0) return
+
+    const totalImages = (ticket.images?.length || 0) + files.length
+    if (totalImages > 8) {
+      toast.error(`Cannot add ${files.length} images. Maximum 8 images allowed.`)
+      return
+    }
+
+    try {
+      const formData = new FormData()
+      Array.from(files).forEach(file => {
+        formData.append('images', file)
+      })
+
+      await ticketService.addImages(id, formData)
+      toast.success('Images uploaded successfully')
+      fetchTicket()
+    } catch (error) {
+      toast.error('Failed to upload images')
+    }
+  }
+
+  const handleDeleteImage = async (imageIndex) => {
+    try {
+      await ticketService.deleteImage(id, imageIndex)
+      toast.success('Image deleted')
+      fetchTicket()
+    } catch (error) {
+      toast.error('Failed to delete image')
+    }
+  }
+
+  const openFileSelector = () => {
+    fileInputRef.current?.click()
+  }
+
+  const openCamera = () => {
+    cameraInputRef.current?.click()
+  }
+
   if (loading) return <LoadingSpinner />
   if (!ticket) return <div>Ticket not found</div>
 
-  const canEdit = ['SUPER_ADMIN', 'EMPLOYEE'].includes(user?.role)
-  const isAssigned = ticket.assignedToId === user?.id || user?.role === 'SUPER_ADMIN'
+  const canEdit = ['SUPER_ADMIN', 'RECEPTIONIST'].includes(user?.role)
+  const remainingImageSlots = 8 - (ticket.images?.length || 0)
 
   return (
     <div className="space-y-6">
@@ -153,30 +142,10 @@ const TicketDetails = () => {
           </div>
         </div>
         <div className="flex items-center space-x-4">
-          <button
-            onClick={handleManualRefresh}
-            disabled={refreshing}
-            className="p-2 text-gray-600 hover:text-primary-600 hover:bg-gray-100 rounded-lg transition-colors"
-            title="Refresh ticket"
-          >
-            <RefreshCw className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
-          </button>
           <StatusBadge status={ticket.status} />
-          <PriorityBadge priority={ticket.priority} />
+          <PaymentStatusBadge status={ticket.paymentStatus || 'PENDING'} />
         </div>
       </div>
-
-      {/* Auto-refresh indicator for awaiting approval */}
-      {ticket.status === 'AWAITING_APPROVAL' && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <div className="flex items-center gap-2">
-            <RefreshCw className="h-4 w-4 text-yellow-600 animate-spin" />
-            <p className="text-sm text-yellow-800">
-              Auto-refreshing every 10 seconds to check for customer response via WhatsApp...
-            </p>
-          </div>
-        </div>
-      )}
 
       {/* Customer Info */}
       <div className="card">
@@ -218,30 +187,78 @@ const TicketDetails = () => {
         </div>
       </div>
 
-      {/* Assignment (Admin only) */}
-      {user?.role === 'SUPER_ADMIN' && ticket.status === 'CREATED' && (
-        <div className="card">
-          <h2 className="text-xl font-bold mb-4">Assign Ticket</h2>
-          <div className="flex gap-4">
-            <select 
-              className="input flex-1"
-              value={assignTo}
-              onChange={(e) => setAssignTo(e.target.value)}
-            >
-              <option value="">Select Employee</option>
-              {employees.map(emp => (
-                <option key={emp.id} value={emp.id}>{emp.name}</option>
-              ))}
-            </select>
-            <button onClick={handleAssign} className="btn btn-primary">
-              Assign
-            </button>
-          </div>
+      {/* Images */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold">Images ({ticket.images?.length || 0}/8)</h2>
+          {canEdit && remainingImageSlots > 0 && (
+            <div className="flex gap-2">
+              <button onClick={openFileSelector} className="btn btn-secondary text-sm flex items-center gap-2">
+                <Upload className="h-4 w-4" />
+                Upload ({remainingImageSlots} left)
+              </button>
+              <button onClick={openCamera} className="btn btn-secondary text-sm flex items-center gap-2">
+                <Camera className="h-4 w-4" />
+                Camera
+              </button>
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Hidden file inputs */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={(e) => handleImageUpload(e.target.files)}
+        />
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={(e) => handleImageUpload(e.target.files)}
+        />
+
+        {ticket.images && ticket.images.length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {ticket.images.map((image, index) => (
+              <div key={index} className="relative group">
+                <img 
+                  src={image} 
+                  alt={`Ticket image ${index + 1}`}
+                  className="w-full h-32 object-cover rounded-lg cursor-pointer"
+                  onClick={() => setSelectedImage(image)}
+                />
+                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all rounded-lg flex items-center justify-center gap-2">
+                  <button 
+                    onClick={() => setSelectedImage(image)}
+                    className="opacity-0 group-hover:opacity-100 p-2 bg-white rounded-full hover:bg-gray-100 transition-all"
+                  >
+                    <ZoomIn className="h-4 w-4" />
+                  </button>
+                  {canEdit && (
+                    <button 
+                      onClick={() => handleDeleteImage(index)}
+                      className="opacity-0 group-hover:opacity-100 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-gray-500 text-center py-8">No images uploaded yet</p>
+        )}
+      </div>
 
       {/* Diagnosis Section */}
-      {canEdit && isAssigned && ['ASSIGNED', 'IN_DIAGNOSIS'].includes(ticket.status) && (
+      {canEdit && ['CREATED', 'IN_PROGRESS'].includes(ticket.status) && (
         <div className="card">
           <h2 className="text-xl font-bold mb-4">Submit Diagnosis</h2>
           {!showDiagnosis ? (
@@ -302,9 +319,8 @@ const TicketDetails = () => {
                 />
               </div>
               <div className="flex gap-4">
-                <button type="submit" className="btn btn-primary flex items-center">
-                  <Send className="h-4 w-4 mr-2" />
-                  Submit & Send WhatsApp
+                <button type="submit" className="btn btn-primary">
+                  Submit Diagnosis
                 </button>
                 <button type="button" onClick={() => setShowDiagnosis(false)} className="btn btn-secondary">
                   Cancel
@@ -348,33 +364,12 @@ const TicketDetails = () => {
         </div>
       )}
 
-      {/* Approval Actions */}
-      {canEdit && isAssigned && ticket.status === 'AWAITING_APPROVAL' && (
-        <div className="card">
-          <h2 className="text-xl font-bold mb-4">Customer Approval</h2>
-          <div className="flex gap-4">
-            <button 
-              onClick={() => handleApprovalUpdate('APPROVED')}
-              className="btn bg-green-600 text-white hover:bg-green-700"
-            >
-              Mark as Approved
-            </button>
-            <button 
-              onClick={() => handleApprovalUpdate('DECLINED')}
-              className="btn btn-danger"
-            >
-              Mark as Declined
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Status Actions */}
-      {canEdit && isAssigned && (
+      {canEdit && (
         <div className="card">
           <h2 className="text-xl font-bold mb-4">Update Status</h2>
           <div className="flex flex-wrap gap-2">
-            {ticket.status === 'APPROVED' && (
+            {ticket.status === 'CREATED' && (
               <button onClick={() => handleStatusUpdate('IN_PROGRESS')} className="btn btn-primary">
                 Start Repair
               </button>
@@ -389,7 +384,7 @@ const TicketDetails = () => {
       )}
 
       {/* Payment Section */}
-      {canEdit && isAssigned && ticket.status === 'RESOLVED' && (
+      {canEdit && ticket.status === 'RESOLVED' && (
         <div className="card">
           <h2 className="text-xl font-bold mb-4">Collect Payment</h2>
           {!showPayment ? (
@@ -453,6 +448,28 @@ const TicketDetails = () => {
                 {new Date(ticket.payment.paymentDate).toLocaleDateString()}
               </p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image Preview Modal */}
+      {selectedImage && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4"
+          onClick={() => setSelectedImage(null)}
+        >
+          <div className="relative max-w-4xl max-h-full">
+            <button 
+              onClick={() => setSelectedImage(null)}
+              className="absolute -top-10 right-0 text-white hover:text-gray-300"
+            >
+              <X className="h-8 w-8" />
+            </button>
+            <img 
+              src={selectedImage} 
+              alt="Preview" 
+              className="max-w-full max-h-[90vh] object-contain"
+            />
           </div>
         </div>
       )}

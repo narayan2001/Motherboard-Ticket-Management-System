@@ -1,5 +1,4 @@
 const prisma = require('../config/database');
-const { sendWhatsAppNotification } = require('../utils/whatsapp');
 
 // @desc    Create new ticket
 // @route   POST /api/tickets
@@ -11,8 +10,7 @@ exports.createTicket = async (req, res, next) => {
       customerEmail,
       motherboardBrand,
       motherboardType,
-      initialIssue,
-      priority
+      initialIssue
     } = req.body;
 
     // Validation
@@ -63,7 +61,6 @@ exports.createTicket = async (req, res, next) => {
     // Generate unique ticket number
     const year = new Date().getFullYear();
     
-    // Count all tickets for this year to get the next number
     const ticketCount = await prisma.ticket.count({
       where: {
         ticketNumber: {
@@ -75,10 +72,10 @@ exports.createTicket = async (req, res, next) => {
     const nextNumber = ticketCount + 1;
     const ticketNumber = `MB-${year}-${String(nextNumber).padStart(4, '0')}`;
 
-    // Handle image upload if exists
-    let imagePath = null;
-    if (req.file) {
-      imagePath = `/uploads/${req.file.filename}`;
+    // Handle multiple image uploads
+    let images = [];
+    if (req.files && req.files.length > 0) {
+      images = req.files.map(file => `/uploads/${file.filename}`);
     }
 
     // Create ticket
@@ -91,8 +88,7 @@ exports.createTicket = async (req, res, next) => {
         motherboardBrand: motherboardBrand.trim(),
         motherboardType: motherboardType.trim(),
         initialIssue: initialIssue.trim(),
-        priority: priority || 'MEDIUM',
-        imagePath,
+        images,
         createdById: req.user.id
       },
       include: {
@@ -107,7 +103,7 @@ exports.createTicket = async (req, res, next) => {
       data: {
         ticketId: ticket.id,
         changedById: req.user.id,
-        actionType: 'CREATED',
+        actionType: 'TICKET_CREATED',
         actionDescription: 'Ticket created',
         newStatus: 'CREATED'
       }
@@ -123,42 +119,38 @@ exports.createTicket = async (req, res, next) => {
   }
 };
 
-// @desc    Get all tickets with filters
+// @desc    Get all tickets
 // @route   GET /api/tickets
-exports.getAllTickets = async (req, res, next) => {
+exports.getTickets = async (req, res, next) => {
   try {
-    const { status, priority, search, assignedTo, page = 1, limit = 20 } = req.query;
+    const { status, search, page = 1, limit = 50 } = req.query;
 
     const where = {};
 
-    // Apply filters
-    if (status) where.status = status;
-    if (priority) where.priority = priority;
-    if (assignedTo) where.assignedToId = assignedTo;
-    
+    if (status) {
+      where.status = status;
+    }
+
     if (search) {
       where.OR = [
         { ticketNumber: { contains: search, mode: 'insensitive' } },
         { customerName: { contains: search, mode: 'insensitive' } },
-        { customerPhone: { contains: search } }
+        { customerPhone: { contains: search } },
+        { motherboardBrand: { contains: search, mode: 'insensitive' } },
+        { motherboardType: { contains: search, mode: 'insensitive' } }
       ];
     }
 
-    // Role-based filtering
-    if (req.user.role === 'EMPLOYEE') {
-      where.assignedToId = req.user.id;
-    }
-
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const skip = (page - 1) * parseInt(limit);
 
     const [tickets, total] = await Promise.all([
       prisma.ticket.findMany({
         where,
         include: {
-          createdBy: { select: { id: true, name: true } },
-          assignedTo: { select: { id: true, name: true } },
+          createdBy: {
+            select: { id: true, name: true, email: true }
+          },
           diagnosis: true,
-          approval: true,
           payment: true
         },
         orderBy: { createdAt: 'desc' },
@@ -173,8 +165,9 @@ exports.getAllTickets = async (req, res, next) => {
       data: {
         tickets,
         pagination: {
-          total,
           page: parseInt(page),
+          limit: parseInt(limit),
+          total,
           pages: Math.ceil(total / parseInt(limit))
         }
       }
@@ -191,26 +184,29 @@ exports.getTicket = async (req, res, next) => {
     const ticket = await prisma.ticket.findUnique({
       where: { id: req.params.id },
       include: {
-        createdBy: { select: { id: true, name: true, email: true } },
-        assignedTo: { select: { id: true, name: true, email: true, phone: true } },
+        createdBy: {
+          select: { id: true, name: true, email: true }
+        },
         diagnosis: {
           include: {
-            diagnosedBy: { select: { id: true, name: true } }
+            diagnosedBy: {
+              select: { id: true, name: true, email: true }
+            }
           }
         },
-        approval: true,
         payment: {
           include: {
-            collectedBy: { select: { id: true, name: true } }
+            collectedBy: {
+              select: { id: true, name: true, email: true }
+            }
           }
         },
         history: {
           include: {
-            changedBy: { select: { id: true, name: true } }
+            changedBy: {
+              select: { id: true, name: true }
+            }
           },
-          orderBy: { createdAt: 'desc' }
-        },
-        notifications: {
           orderBy: { createdAt: 'desc' }
         }
       }
@@ -223,67 +219,8 @@ exports.getTicket = async (req, res, next) => {
       });
     }
 
-    // Check access
-    if (req.user.role === 'EMPLOYEE' && ticket.assignedToId !== req.user.id) {
-      return res.status(403).json({
-        success: false,
-        message: 'Not authorized to access this ticket'
-      });
-    }
-
     res.json({
       success: true,
-      data: ticket
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Assign ticket to employee
-// @route   PUT /api/tickets/:id/assign
-exports.assignTicket = async (req, res, next) => {
-  try {
-    const { assignedToId } = req.body;
-
-    // Verify employee exists
-    const employee = await prisma.user.findUnique({
-      where: { id: assignedToId }
-    });
-
-    if (!employee || employee.role !== 'EMPLOYEE') {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid employee ID'
-      });
-    }
-
-    const ticket = await prisma.ticket.update({
-      where: { id: req.params.id },
-      data: {
-        assignedToId,
-        status: 'ASSIGNED'
-      },
-      include: {
-        assignedTo: { select: { id: true, name: true } }
-      }
-    });
-
-    // Create history entry
-    await prisma.ticketHistory.create({
-      data: {
-        ticketId: ticket.id,
-        changedById: req.user.id,
-        actionType: 'ASSIGNED',
-        actionDescription: `Ticket assigned to ${employee.name}`,
-        oldStatus: 'CREATED',
-        newStatus: 'ASSIGNED'
-      }
-    });
-
-    res.json({
-      success: true,
-      message: 'Ticket assigned successfully',
       data: ticket
     });
   } catch (error) {
@@ -298,10 +235,7 @@ exports.updateStatus = async (req, res, next) => {
     const { status, notes } = req.body;
 
     const ticket = await prisma.ticket.findUnique({
-      where: { id: req.params.id },
-      include: {
-        diagnosis: true
-      }
+      where: { id: req.params.id }
     });
 
     if (!ticket) {
@@ -327,46 +261,6 @@ exports.updateStatus = async (req, res, next) => {
         newStatus: status
       }
     });
-
-    // Send WhatsApp notification when ticket is resolved
-    if (status === 'RESOLVED') {
-      const { sendWhatsAppNotification } = require('../utils/whatsapp');
-      
-      const message = `✅ Great news! Your motherboard repair is complete!
-
-🎫 Ticket: ${ticket.ticketNumber}
-📋 Customer: ${ticket.customerName}
-🔧 Motherboard: ${ticket.motherboardBrand} ${ticket.motherboardType}
-
-Your device has been repaired and is ready for pickup!
-
-${ticket.diagnosis ? `💰 Total Amount: ₹${ticket.diagnosis.totalCost}` : ''}
-
-Please visit our service center to collect your motherboard and make the payment.
-
-Thank you for choosing our service! 😊`;
-
-      await sendWhatsAppNotification(ticket.customerPhone, message, req.params.id, 'REPAIR_COMPLETED');
-    }
-    
-    // Send WhatsApp notification when repair starts
-    if (status === 'IN_PROGRESS') {
-      const { sendWhatsAppNotification } = require('../utils/whatsapp');
-      
-      const message = `🔧 Your motherboard repair has started!
-
-🎫 Ticket: ${ticket.ticketNumber}
-📋 Customer: ${ticket.customerName}
-🔧 Motherboard: ${ticket.motherboardBrand} ${ticket.motherboardType}
-
-Our technicians are now working on your repair.
-
-${ticket.diagnosis?.estimatedCompletionDays ? `⏱️ Estimated Completion: ${ticket.diagnosis.estimatedCompletionDays} day(s)` : ''}
-
-We'll notify you once it's complete! 😊`;
-
-      await sendWhatsAppNotification(ticket.customerPhone, message, req.params.id, 'REPAIR_STARTED');
-    }
 
     res.json({
       success: true,
@@ -432,25 +326,10 @@ exports.submitDiagnosis = async (req, res, next) => {
       }
     });
 
-    // Create approval record
-    const approval = await prisma.ticketApproval.upsert({
-      where: { ticketId: req.params.id },
-      create: {
-        ticketId: req.params.id,
-        diagnosisId: diagnosis.id,
-        approvalStatus: 'PENDING',
-        notificationSentAt: new Date()
-      },
-      update: {
-        approvalStatus: 'PENDING',
-        diagnosisId: diagnosis.id
-      }
-    });
-
     // Update ticket status
     await prisma.ticket.update({
       where: { id: req.params.id },
-      data: { status: 'AWAITING_APPROVAL' }
+      data: { status: 'IN_PROGRESS' }
     });
 
     // Create history entry
@@ -459,105 +338,16 @@ exports.submitDiagnosis = async (req, res, next) => {
         ticketId: req.params.id,
         changedById: req.user.id,
         actionType: 'DIAGNOSIS_SUBMITTED',
-        actionDescription: 'Diagnosis submitted and waiting for customer approval',
+        actionDescription: 'Diagnosis submitted',
         oldStatus: ticket.status,
-        newStatus: 'AWAITING_APPROVAL'
+        newStatus: 'IN_PROGRESS'
       }
     });
-
-    // Send WhatsApp notification
-    const message = `Hello ${ticket.customerName},\n\nYour motherboard (Ticket: ${ticket.ticketNumber}) has been diagnosed.\n\nIssue Found: ${diagnosisNotes}\n\nTotal Repair Cost: ₹${totalCost}\nExpected Completion: ${estimatedCompletionDays} days\n\nPlease reply YES to approve or NO to decline the repair.`;
-    
-    await sendWhatsAppNotification(ticket.customerPhone, message, req.params.id, 'DIAGNOSIS_ESTIMATE');
 
     res.json({
       success: true,
-      message: 'Diagnosis submitted and notification sent to customer',
-      data: { diagnosis, approval }
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Update approval status
-// @route   PUT /api/tickets/:id/approval
-exports.updateApproval = async (req, res, next) => {
-  try {
-    const { approvalStatus, customerResponseNotes } = req.body;
-
-    const ticket = await prisma.ticket.findUnique({
-      where: { id: req.params.id },
-      include: {
-        diagnosis: true
-      }
-    });
-
-    if (!ticket) {
-      return res.status(404).json({
-        success: false,
-        message: 'Ticket not found'
-      });
-    }
-
-    const approval = await prisma.ticketApproval.update({
-      where: { ticketId: req.params.id },
-      data: {
-        approvalStatus,
-        customerResponseNotes,
-        responseDate: new Date()
-      }
-    });
-
-    const newStatus = approvalStatus === 'APPROVED' ? 'APPROVED' : 'DECLINED';
-
-    await prisma.ticket.update({
-      where: { id: req.params.id },
-      data: { status: newStatus }
-    });
-
-    await prisma.ticketHistory.create({
-      data: {
-        ticketId: req.params.id,
-        changedById: req.user.id,
-        actionType: 'APPROVAL_UPDATED',
-        actionDescription: `Customer ${approvalStatus.toLowerCase()} the repair`,
-        oldStatus: 'AWAITING_APPROVAL',
-        newStatus
-      }
-    });
-
-    // Send WhatsApp notification for manual approval/decline
-    const { sendWhatsAppNotification } = require('../utils/whatsapp');
-    
-    if (approvalStatus === 'APPROVED') {
-      const message = `✅ Your repair has been APPROVED!
-
-🎫 Ticket: ${ticket.ticketNumber}
-🔧 Motherboard: ${ticket.motherboardBrand} ${ticket.motherboardType}
-💰 Total Cost: ₹${ticket.diagnosis.totalCost}
-
-We're now proceeding with the repair. You'll be notified once it's completed!
-
-Thank you! 😊`;
-      
-      await sendWhatsAppNotification(ticket.customerPhone, message, req.params.id, 'MANUAL_APPROVAL');
-    } else if (approvalStatus === 'DECLINED') {
-      const message = `❌ Repair DECLINED - Ticket ${ticket.ticketNumber}
-
-Your motherboard repair request has been marked as declined.
-
-If you have any questions or wish to proceed, please contact us.
-
-Thank you!`;
-      
-      await sendWhatsAppNotification(ticket.customerPhone, message, req.params.id, 'MANUAL_DECLINE');
-    }
-
-    res.json({
-      success: true,
-      message: 'Approval status updated',
-      data: approval
+      message: 'Diagnosis submitted successfully',
+      data: diagnosis
     });
   } catch (error) {
     next(error);
@@ -568,11 +358,10 @@ Thank you!`;
 // @route   POST /api/tickets/:id/payment
 exports.submitPayment = async (req, res, next) => {
   try {
-    const { amountPaid, paymentMethod, receiptNumber } = req.body;
+    const { amountPaid, paymentMethod } = req.body;
 
     const ticket = await prisma.ticket.findUnique({
-      where: { id: req.params.id },
-      include: { diagnosis: true }
+      where: { id: req.params.id }
     });
 
     if (!ticket) {
@@ -582,41 +371,136 @@ exports.submitPayment = async (req, res, next) => {
       });
     }
 
+    // Create payment record
     const payment = await prisma.payment.create({
       data: {
         ticketId: req.params.id,
         amountPaid: parseFloat(amountPaid),
         paymentMethod,
-        receiptNumber,
         collectedById: req.user.id
       }
     });
 
+    // Update ticket status and payment status
     await prisma.ticket.update({
       where: { id: req.params.id },
-      data: { status: 'CLOSED' }
+      data: { 
+        status: 'CLOSED',
+        paymentStatus: 'PAID'
+      }
     });
 
+    // Create history entry
     await prisma.ticketHistory.create({
       data: {
         ticketId: req.params.id,
         changedById: req.user.id,
         actionType: 'PAYMENT_RECEIVED',
-        actionDescription: `Payment of ₹${amountPaid} received via ${paymentMethod}`,
-        oldStatus: 'RESOLVED',
+        actionDescription: `Payment received: ₹${amountPaid} via ${paymentMethod}`,
+        oldStatus: ticket.status,
         newStatus: 'CLOSED'
       }
     });
-
-    // Send thank you notification
-    const message = `Thank you for choosing our services!\n\nYour motherboard (Ticket: ${ticket.ticketNumber}) has been successfully repaired.\n\nWe appreciate your business and look forward to serving you again.`;
-    
-    await sendWhatsAppNotification(ticket.customerPhone, message, req.params.id, 'THANK_YOU');
 
     res.json({
       success: true,
       message: 'Payment recorded and ticket closed',
       data: payment
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Delete ticket image
+// @route   DELETE /api/tickets/:id/images/:imageIndex
+exports.deleteImage = async (req, res, next) => {
+  try {
+    const { id, imageIndex } = req.params;
+    const index = parseInt(imageIndex);
+
+    const ticket = await prisma.ticket.findUnique({
+      where: { id }
+    });
+
+    if (!ticket) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ticket not found'
+      });
+    }
+
+    if (index < 0 || index >= ticket.images.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid image index'
+      });
+    }
+
+    // Remove image from array
+    const updatedImages = ticket.images.filter((_, i) => i !== index);
+
+    // Update ticket
+    await prisma.ticket.update({
+      where: { id },
+      data: { images: updatedImages }
+    });
+
+    res.json({
+      success: true,
+      message: 'Image deleted successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Add images to ticket
+// @route   POST /api/tickets/:id/images
+exports.addImages = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const ticket = await prisma.ticket.findUnique({
+      where: { id }
+    });
+
+    if (!ticket) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ticket not found'
+      });
+    }
+
+    // Check if adding images would exceed limit
+    const newImagesCount = req.files ? req.files.length : 0;
+    const totalImages = ticket.images.length + newImagesCount;
+
+    if (totalImages > 8) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot add ${newImagesCount} images. Maximum 8 images allowed. Current: ${ticket.images.length}`
+      });
+    }
+
+    // Add new images
+    let newImages = [];
+    if (req.files && req.files.length > 0) {
+      newImages = req.files.map(file => `/uploads/${file.filename}`);
+    }
+
+    const updatedImages = [...ticket.images, ...newImages];
+
+    // Update ticket
+    const updatedTicket = await prisma.ticket.update({
+      where: { id },
+      data: { images: updatedImages }
+    });
+
+    res.json({
+      success: true,
+      message: 'Images added successfully',
+      data: updatedTicket
     });
   } catch (error) {
     next(error);

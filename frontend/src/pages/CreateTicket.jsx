@@ -1,119 +1,115 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ticketService } from '../services/api'
+import { ArrowLeft, Upload, Camera, X } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { ArrowLeft } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 const CreateTicket = () => {
   const navigate = useNavigate()
+  const fileInputRef = useRef(null)
+  const cameraInputRef = useRef(null)
+  
   const [formData, setFormData] = useState({
     customerName: '',
     customerPhone: '',
     customerEmail: '',
     motherboardBrand: '',
     motherboardType: '',
-    initialIssue: '',
-    priority: 'MEDIUM'
+    initialIssue: ''
   })
-  const [image, setImage] = useState(null)
+  const [images, setImages] = useState([])
   const [loading, setLoading] = useState(false)
-  const [errors, setErrors] = useState({})
-
-  const validatePhone = (phone) => {
-    const phoneRegex = /^(\+91)?[6-9]\d{9}$/
-    return phoneRegex.test(phone.replace(/\s/g, ''))
-  }
-
-  const validateForm = () => {
-    const newErrors = {}
-    
-    if (!formData.customerName.trim() || formData.customerName.trim().length < 2) {
-      newErrors.customerName = 'Name must be at least 2 characters'
-    }
-    
-    if (!validatePhone(formData.customerPhone)) {
-      newErrors.customerPhone = 'Please enter a valid 10-digit Indian phone number'
-    }
-    
-    if (formData.customerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.customerEmail)) {
-      newErrors.customerEmail = 'Please enter a valid email address'
-    }
-    
-    if (!formData.motherboardBrand.trim()) {
-      newErrors.motherboardBrand = 'Motherboard brand is required'
-    }
-    
-    if (!formData.motherboardType.trim()) {
-      newErrors.motherboardType = 'Motherboard model/type is required'
-    }
-    
-    if (!formData.initialIssue.trim() || formData.initialIssue.trim().length < 10) {
-      newErrors.initialIssue = 'Please provide a detailed description (at least 10 characters)'
-    }
-    
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
 
   const handleChange = (e) => {
-    const { name, value } = e.target
-    setFormData({ ...formData, [name]: value })
-    if (errors[name]) {
-      setErrors({ ...errors, [name]: '' })
-    }
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    })
   }
 
-  const handleImageChange = (e) => {
-    if (e.target.files[0]) {
-      setImage(e.target.files[0])
+  const handleImageSelect = (files) => {
+    if (!files || files.length === 0) return
+
+    const totalImages = images.length + files.length
+    if (totalImages > 8) {
+      toast.error(`Cannot add ${files.length} images. Maximum 8 images allowed.`)
+      return
     }
+
+    const newImages = Array.from(files).map(file => ({
+      file,
+      preview: URL.createObjectURL(file)
+    }))
+    setImages([...images, ...newImages])
+  }
+
+  const removeImage = (index) => {
+    const newImages = images.filter((_, i) => i !== index)
+    // Revoke object URL to prevent memory leaks
+    URL.revokeObjectURL(images[index].preview)
+    setImages(newImages)
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    
-    if (!validateForm()) {
-      toast.error('Please fix the validation errors')
-      return
-    }
-    
     setLoading(true)
 
     try {
-      const submitData = new FormData()
+      const formDataToSend = new FormData()
+      
+      // Append form fields
       Object.keys(formData).forEach(key => {
-        submitData.append(key, formData[key])
+        if (formData[key]) {
+          formDataToSend.append(key, formData[key])
+        }
       })
-      if (image) {
-        submitData.append('image', image)
-      }
 
-      const response = await ticketService.create(submitData)
-      toast.success(`Ticket ${response.data.ticketNumber} created successfully!`)
-      navigate('/tickets')
+      // Append images
+      images.forEach(img => {
+        formDataToSend.append('images', img.file)
+      })
+
+      const response = await ticketService.create(formDataToSend)
+      toast.success('Ticket created successfully!')
+      
+      // Cleanup object URLs
+      images.forEach(img => URL.revokeObjectURL(img.preview))
+      
+      navigate(`/tickets/${response.data.id}`)
     } catch (error) {
+      console.error('Create ticket error:', error)
       toast.error(error.response?.data?.message || 'Failed to create ticket')
     } finally {
       setLoading(false)
     }
   }
 
+  const openFileSelector = () => {
+    fileInputRef.current?.click()
+  }
+
+  const openCamera = () => {
+    cameraInputRef.current?.click()
+  }
+
+  const remainingSlots = 8 - images.length
+
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center space-x-4">
         <Link to="/tickets" className="text-gray-600 hover:text-gray-900">
           <ArrowLeft className="h-6 w-6" />
         </Link>
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Create New Ticket</h1>
-          <p className="text-gray-500 mt-1">Enter customer and motherboard details</p>
+          <p className="text-gray-500 mt-1">Fill in the details below</p>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="card space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6">
         {/* Customer Information */}
-        <div>
+        <div className="card">
           <h2 className="text-xl font-bold mb-4">Customer Information</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -122,13 +118,11 @@ const CreateTicket = () => {
                 type="text"
                 name="customerName"
                 required
-                className={`input ${errors.customerName ? 'border-red-500' : ''}`}
+                className="input"
                 value={formData.customerName}
                 onChange={handleChange}
+                placeholder="Enter customer name"
               />
-              {errors.customerName && (
-                <p className="text-red-500 text-sm mt-1">{errors.customerName}</p>
-              )}
             </div>
             <div>
               <label className="label">Phone Number *</label>
@@ -136,34 +130,29 @@ const CreateTicket = () => {
                 type="tel"
                 name="customerPhone"
                 required
-                className={`input ${errors.customerPhone ? 'border-red-500' : ''}`}
-                placeholder="+91XXXXXXXXXX or 10 digits"
+                className="input"
                 value={formData.customerPhone}
                 onChange={handleChange}
+                placeholder="10-digit phone number"
               />
-              {errors.customerPhone && (
-                <p className="text-red-500 text-sm mt-1">{errors.customerPhone}</p>
-              )}
             </div>
             <div className="md:col-span-2">
               <label className="label">Email (Optional)</label>
               <input
                 type="email"
                 name="customerEmail"
-                className={`input ${errors.customerEmail ? 'border-red-500' : ''}`}
+                className="input"
                 value={formData.customerEmail}
                 onChange={handleChange}
+                placeholder="customer@example.com"
               />
-              {errors.customerEmail && (
-                <p className="text-red-500 text-sm mt-1">{errors.customerEmail}</p>
-              )}
             </div>
           </div>
         </div>
 
         {/* Motherboard Information */}
-        <div>
-          <h2 className="text-xl font-bold mb-4">Motherboard Information</h2>
+        <div className="card">
+          <h2 className="text-xl font-bold mb-4">Motherboard Details</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="label">Brand *</label>
@@ -171,14 +160,11 @@ const CreateTicket = () => {
                 type="text"
                 name="motherboardBrand"
                 required
-                className={`input ${errors.motherboardBrand ? 'border-red-500' : ''}`}
-                placeholder="ASUS, MSI, Gigabyte, etc."
+                className="input"
                 value={formData.motherboardBrand}
                 onChange={handleChange}
+                placeholder="e.g., ASUS, MSI, Gigabyte"
               />
-              {errors.motherboardBrand && (
-                <p className="text-red-500 text-sm mt-1">{errors.motherboardBrand}</p>
-              )}
             </div>
             <div>
               <label className="label">Model/Type *</label>
@@ -186,56 +172,100 @@ const CreateTicket = () => {
                 type="text"
                 name="motherboardType"
                 required
-                className={`input ${errors.motherboardType ? 'border-red-500' : ''}`}
-                placeholder="ROG STRIX, Gaming X, etc."
+                className="input"
                 value={formData.motherboardType}
                 onChange={handleChange}
+                placeholder="e.g., ROG STRIX B550-F"
               />
-              {errors.motherboardType && (
-                <p className="text-red-500 text-sm mt-1">{errors.motherboardType}</p>
-              )}
             </div>
             <div className="md:col-span-2">
-              <label className="label">Initial Issue/Problem *</label>
+              <label className="label">Initial Issue *</label>
               <textarea
                 name="initialIssue"
                 required
                 rows="4"
-                className={`input ${errors.initialIssue ? 'border-red-500' : ''}`}
-                placeholder="Describe the issue reported by customer..."
+                className="input"
                 value={formData.initialIssue}
                 onChange={handleChange}
-              />
-              {errors.initialIssue && (
-                <p className="text-red-500 text-sm mt-1">{errors.initialIssue}</p>
-              )}
-            </div>
-            <div>
-              <label className="label">Priority</label>
-              <select
-                name="priority"
-                className="input"
-                value={formData.priority}
-                onChange={handleChange}
-              >
-                <option value="LOW">Low</option>
-                <option value="MEDIUM">Medium</option>
-                <option value="HIGH">High</option>
-                <option value="URGENT">Urgent</option>
-              </select>
-            </div>
-            <div>
-              <label className="label">Image (Optional)</label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageChange}
-                className="input"
+                placeholder="Describe the problem in detail..."
               />
             </div>
           </div>
         </div>
 
+        {/* Images */}
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold">Images ({images.length}/8)</h2>
+            {remainingSlots > 0 && (
+              <div className="flex gap-2">
+                <button 
+                  type="button"
+                  onClick={openFileSelector} 
+                  className="btn btn-secondary text-sm flex items-center gap-2"
+                >
+                  <Upload className="h-4 w-4" />
+                  Upload ({remainingSlots} left)
+                </button>
+                <button 
+                  type="button"
+                  onClick={openCamera} 
+                  className="btn btn-secondary text-sm flex items-center gap-2"
+                >
+                  <Camera className="h-4 w-4" />
+                  Camera
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Hidden file inputs */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(e) => handleImageSelect(e.target.files)}
+          />
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => handleImageSelect(e.target.files)}
+          />
+
+          {images.length > 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {images.map((img, index) => (
+                <div key={index} className="relative group">
+                  <img 
+                    src={img.preview} 
+                    alt={`Preview ${index + 1}`}
+                    className="w-full h-32 object-cover rounded-lg"
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => removeImage(index)}
+                    className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all opacity-0 group-hover:opacity-100"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center text-gray-500">
+              <Upload className="h-12 w-12 mx-auto mb-2 text-gray-400" />
+              <p>No images selected</p>
+              <p className="text-sm mt-1">Add up to 8 images using the buttons above</p>
+            </div>
+          )}
+        </div>
+
+        {/* Submit Button */}
         <div className="flex gap-4">
           <button
             type="submit"

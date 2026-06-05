@@ -57,11 +57,18 @@ export const ticketService = {
       }
     }).then(res => res.data)
   },
-  assign: (id, assignedToId) => api.put(`/tickets/${id}/assign`, { assignedToId }),
   updateStatus: (id, status, notes) => api.put(`/tickets/${id}/status`, { status, notes }),
   submitDiagnosis: (id, data) => api.post(`/tickets/${id}/diagnosis`, data),
-  updateApproval: (id, data) => api.put(`/tickets/${id}/approval`, data),
-  submitPayment: (id, data) => api.post(`/tickets/${id}/payment`, data)
+  submitPayment: (id, data) => api.post(`/tickets/${id}/payment`, data),
+  addImages: (id, formData) => {
+    return axios.post(`${API_URL}/tickets/${id}/images`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        Authorization: `Bearer ${localStorage.getItem('token')}`
+      }
+    }).then(res => res.data)
+  },
+  deleteImage: (id, imageIndex) => api.delete(`/tickets/${id}/images/${imageIndex}`)
 }
 
 export const dashboardService = {

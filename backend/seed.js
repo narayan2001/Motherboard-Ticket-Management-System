@@ -24,23 +24,6 @@ async function main() {
 
   console.log('✅ Admin user created:', admin.email);
 
-  // Create an employee
-  const employeePassword = await bcrypt.hash('employee123', 10);
-  const employee = await prisma.user.upsert({
-    where: { email: 'employee@example.com' },
-    update: {},
-    create: {
-      email: 'employee@example.com',
-      password: employeePassword,
-      name: 'John Technician',
-      role: 'EMPLOYEE',
-      phone: '+919876543211',
-      isActive: true
-    }
-  });
-
-  console.log('✅ Employee created:', employee.email);
-
   // Create a receptionist
   const receptionistPassword = await bcrypt.hash('receptionist123', 10);
   const receptionist = await prisma.user.upsert({
@@ -78,7 +61,6 @@ async function main() {
   console.log('\n🎉 Seeding completed successfully!\n');
   console.log('📝 Login credentials:');
   console.log('   Admin: admin@example.com / admin123');
-  console.log('   Employee: employee@example.com / employee123');
   console.log('   Receptionist: receptionist@example.com / receptionist123');
 }
 

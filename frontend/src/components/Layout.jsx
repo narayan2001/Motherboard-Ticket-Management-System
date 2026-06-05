@@ -18,8 +18,8 @@ const Layout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['SUPER_ADMIN', 'EMPLOYEE', 'RECEPTIONIST'] },
-    { name: 'Tickets', href: '/tickets', icon: Ticket, roles: ['SUPER_ADMIN', 'EMPLOYEE', 'RECEPTIONIST'] },
+    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['SUPER_ADMIN', 'RECEPTIONIST'] },
+    { name: 'Tickets', href: '/tickets', icon: Ticket, roles: ['SUPER_ADMIN', 'RECEPTIONIST'] },
     { name: 'Users', href: '/users', icon: Users, roles: ['SUPER_ADMIN'] },
     { name: 'Motherboards', href: '/motherboards', icon: CircuitBoard, roles: ['SUPER_ADMIN'] }
   ]

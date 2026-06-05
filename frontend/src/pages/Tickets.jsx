@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom'
 import { ticketService } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import LoadingSpinner from '../components/LoadingSpinner'
-import { StatusBadge, PriorityBadge } from '../components/StatusBadge'
-import { Plus, Search, Filter, RefreshCw } from 'lucide-react'
+import { StatusBadge, PaymentStatusBadge } from '../components/StatusBadge'
+import { Plus, Search, RefreshCw } from 'lucide-react'
 
 const Tickets = () => {
   const [tickets, setTickets] = useState([])
@@ -102,10 +102,6 @@ const Tickets = () => {
             >
               <option value="">All Status</option>
               <option value="CREATED">Created</option>
-              <option value="ASSIGNED">Assigned</option>
-              <option value="IN_DIAGNOSIS">In Diagnosis</option>
-              <option value="AWAITING_APPROVAL">Awaiting Approval</option>
-              <option value="APPROVED">Approved</option>
               <option value="IN_PROGRESS">In Progress</option>
               <option value="RESOLVED">Resolved</option>
               <option value="CLOSED">Closed</option>
@@ -126,8 +122,7 @@ const Tickets = () => {
                 <th className="pb-3 font-medium">Phone</th>
                 <th className="pb-3 font-medium">Motherboard</th>
                 <th className="pb-3 font-medium">Status</th>
-                <th className="pb-3 font-medium">Priority</th>
-                <th className="pb-3 font-medium">Assigned To</th>
+                <th className="pb-3 font-medium">Payment</th>
                 <th className="pb-3 font-medium">Date</th>
               </tr>
             </thead>
@@ -154,9 +149,8 @@ const Tickets = () => {
                     <StatusBadge status={ticket.status} />
                   </td>
                   <td className="py-4">
-                    <PriorityBadge priority={ticket.priority} />
+                    <PaymentStatusBadge status={ticket.paymentStatus || 'PENDING'} />
                   </td>
-                  <td className="py-4">{ticket.assignedTo?.name || '-'}</td>
                   <td className="py-4 text-gray-500">
                     {new Date(ticket.createdAt).toLocaleDateString()}
                   </td>
@@ -164,7 +158,7 @@ const Tickets = () => {
               ))}
               {tickets.length === 0 && (
                 <tr>
-                  <td colSpan="8" className="py-12 text-center text-gray-500">
+                  <td colSpan="7" className="py-12 text-center text-gray-500">
                     <div className="flex flex-col items-center">
                       <Search className="h-12 w-12 text-gray-300 mb-4" />
                       <p>No tickets found</p>
@@ -197,7 +191,7 @@ const Tickets = () => {
                 </div>
                 <div className="flex flex-col gap-1 items-end">
                   <StatusBadge status={ticket.status} />
-                  <PriorityBadge priority={ticket.priority} />
+                  <PaymentStatusBadge status={ticket.paymentStatus || 'PENDING'} />
                 </div>
               </div>
               <div className="space-y-1 text-sm">
@@ -208,10 +202,6 @@ const Tickets = () => {
                 <div className="flex justify-between">
                   <span className="text-gray-500">Model:</span>
                   <span className="text-gray-700">{ticket.motherboardType}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Assigned:</span>
-                  <span className="text-gray-700">{ticket.assignedTo?.name || '-'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Date:</span>
