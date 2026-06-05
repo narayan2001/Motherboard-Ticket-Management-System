@@ -410,6 +410,7 @@ const TicketDetails = () => {
                   <option value="CASH">Cash</option>
                   <option value="UPI">UPI</option>
                   <option value="CARD">Card</option>
+                  <option value="CHEQUE">Cheque</option>
                 </select>
               </div>
               <div className="flex gap-4">
