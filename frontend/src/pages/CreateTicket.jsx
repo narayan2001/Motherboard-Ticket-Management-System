@@ -97,7 +97,15 @@ const CreateTicket = () => {
       navigate(`/tickets/${response.data.id}`)
     } catch (error) {
       console.error('Create ticket error:', error)
-      toast.error(error.response?.data?.message || 'Failed to create ticket')
+      
+      // Show specific validation errors if available
+      if (error.response?.data?.errors) {
+        error.response.data.errors.forEach(err => {
+          toast.error(err, { duration: 5000 })
+        })
+      } else {
+        toast.error(error.response?.data?.message || 'Failed to create ticket')
+      }
     } finally {
       setLoading(false)
     }
@@ -136,10 +144,11 @@ const CreateTicket = () => {
                 type="text"
                 name="customerName"
                 required
+                minLength="2"
                 className="input"
                 value={formData.customerName}
                 onChange={handleChange}
-                placeholder="Enter customer name"
+                placeholder="Enter customer name (min 2 chars)"
               />
             </div>
             <div>
@@ -148,11 +157,13 @@ const CreateTicket = () => {
                 type="tel"
                 name="customerPhone"
                 required
+                pattern="[6-9][0-9]{9}"
                 className="input"
                 value={formData.customerPhone}
                 onChange={handleChange}
-                placeholder="10-digit phone number"
+                placeholder="9876543210 (10 digits)"
               />
+              <p className="text-xs text-gray-500 mt-1">Enter 10-digit mobile number</p>
             </div>
             <div className="md:col-span-2">
               <label className="label">Email (Optional)</label>
